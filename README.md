@@ -10,7 +10,7 @@ Patterns is an anti-framework for shaping plain Elixir code into tidy little sys
 
 It gives you small, composable building blocks for the parts of an app that tend to get repetitive:
 
-- query DSLs
+- [query DSLs](https://hexdocs.pm/patterns/Patterns.Queryable.html)
 - middleware
 - [scoped context](https://hexdocs.pm/patterns/Patterns.Utils.html#with_ctx/2)
 - [delegation helpers](https://hexdocs.pm/patterns/Patterns.Utils.html#defdelegate_all/1)
@@ -53,6 +53,18 @@ A couple of tiny tools for library-ish code:
 
 - `defdelegate_all/1` for when yes, actually, you do want to delegate the whole public surface.
 - `with_ctx/2` and `ctx/1` for scoped process-local context when a DSL needs to know where it is.
+
+### Queryable
+
+`Patterns.Queryable` gives Ecto schemas one tidy `query/2` entrypoint for contexts, resolvers, dataloaders, and tests.
+
+Think of it like a more powerful `Repo.get_by/2` that works on any query, with good defaults for the boring stuff:
+
+```elixir
+Post.query(title: "Hello")
+Post.query([published: true, order_by: [desc: :published_at]])
+Post.query(comments: [author_id: user.id])
+```
 
 ## Status
 
