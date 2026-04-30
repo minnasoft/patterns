@@ -21,6 +21,7 @@ defmodule Patterns.Middleware.Resolution do
   - `middleware` is the remaining middleware stack for the current yield. Treat
     this as runtime state; middleware should normally call `yield/2` instead of
     updating it directly.
+  - `opts` is the keyword options for the currently running middleware entry.
   - `super` is the arity-2 function called after the last middleware yields.
     `run/4` installs this automatically.
   - `private` stores middleware metadata. Use `Patterns.Middleware` private
@@ -32,7 +33,8 @@ defmodule Patterns.Middleware.Resolution do
           function: atom(),
           arity: non_neg_integer(),
           args: [term()],
-          middleware: [module()],
+          middleware: [{module(), keyword()}],
+          opts: keyword(),
           super: (term(), __MODULE__.t() -> term()) | nil,
           private: map()
         }
@@ -42,6 +44,7 @@ defmodule Patterns.Middleware.Resolution do
             arity: 0,
             args: [],
             middleware: [],
+            opts: [],
             super: nil,
             private: %{}
 end

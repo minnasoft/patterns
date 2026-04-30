@@ -31,6 +31,52 @@ defmodule Patterns.MiddlewareTest do
     end
   end
 
+  defmodule Blog.Middlewares.RecordAuditLogWithOpts do
+    @moduledoc false
+    @behaviour Patterns.Middleware
+
+    use Patterns.Middleware
+
+    @impl Patterns.Middleware
+    def process(args, resolution) do
+      send(self(), {:middleware_opts, __MODULE__, args, resolution.opts})
+
+      yield(args, resolution)
+    end
+  end
+
+  defmodule Blog.Middlewares.AssertOptsAfterYield do
+    @moduledoc false
+    @behaviour Patterns.Middleware
+
+    use Patterns.Middleware
+
+    @impl Patterns.Middleware
+    def process(args, resolution) do
+      send(self(), {:middleware_opts_before_yield, resolution.opts})
+
+      {result, resolution} = yield(args, resolution)
+
+      send(self(), {:middleware_opts_after_yield, resolution.opts})
+
+      {result, resolution}
+    end
+  end
+
+  defmodule Blog.Middlewares.AssertEmptyOpts do
+    @moduledoc false
+    @behaviour Patterns.Middleware
+
+    use Patterns.Middleware
+
+    @impl Patterns.Middleware
+    def process(args, resolution) do
+      send(self(), {:middleware_opts, __MODULE__, args, resolution.opts})
+
+      yield(args, resolution)
+    end
+  end
+
   defmodule Blog.Middlewares.NormalizePostTitle do
     @moduledoc false
     @behaviour Patterns.Middleware
@@ -183,6 +229,8 @@ defmodule Patterns.MiddlewareTest do
 
     use Patterns.Middleware
 
+    alias Patterns.MiddlewareTest.Blog.Middlewares.AssertEmptyOpts
+    alias Patterns.MiddlewareTest.Blog.Middlewares.AssertOptsAfterYield
     alias Patterns.MiddlewareTest.Blog.Middlewares.AssertOriginalArgs
     alias Patterns.MiddlewareTest.Blog.Middlewares.AuthorizeEditor
     alias Patterns.MiddlewareTest.Blog.Middlewares.DropPostArgs
@@ -192,6 +240,7 @@ defmodule Patterns.MiddlewareTest do
     alias Patterns.MiddlewareTest.Blog.Middlewares.NormalizePostTitle
     alias Patterns.MiddlewareTest.Blog.Middlewares.ReadPaginationResolution
     alias Patterns.MiddlewareTest.Blog.Middlewares.RecordAuditLog
+    alias Patterns.MiddlewareTest.Blog.Middlewares.RecordAuditLogWithOpts
     alias Patterns.MiddlewareTest.Blog.Middlewares.ReturnMissingPost
     alias Patterns.MiddlewareTest.Blog.Middlewares.StoreDraftRemotely
 
@@ -203,6 +252,28 @@ defmodule Patterns.MiddlewareTest do
     @middleware [AuthorizeEditor, RecordAuditLog]
     def publish_post(post_id) do
       {:ok, {:published, post_id}}
+    end
+
+    @middleware {RecordAuditLogWithOpts, event: :archive_post}
+    def archive_post(post_id) do
+      {:ok, {:archived, post_id}}
+    end
+
+    @middleware [AuthorizeEditor, {RecordAuditLogWithOpts, event: :feature_post}]
+    def feature_post(post_id) do
+      {:ok, {:featured, post_id}}
+    end
+
+    @middleware {AssertOptsAfterYield, event: :outer}
+    @middleware {RecordAuditLogWithOpts, event: :inner}
+    def schedule_post(post_id) do
+      {:ok, {:scheduled, post_id}}
+    end
+
+    @middleware {RecordAuditLogWithOpts, event: :promote_post}
+    @middleware AssertEmptyOpts
+    def promote_post(post_id) do
+      {:ok, {:promoted, post_id}}
     end
 
     @middleware AuthorizeEditor
@@ -328,6 +399,34 @@ defmodule Patterns.MiddlewareTest do
 
       assert_receive {:middleware, first_pid, Blog.Middlewares.AuthorizeEditor, [123], Blog, :publish_post}
       assert_receive {:middleware, ^first_pid, Blog.Middlewares.RecordAuditLog, [123], Blog, :publish_post}
+    end
+
+    test "accepts middleware entries with options" do
+      assert Blog.archive_post(123) == {:ok, {:archived, 123}}
+
+      assert_receive {:middleware_opts, Blog.Middlewares.RecordAuditLogWithOpts, [123], event: :archive_post}
+    end
+
+    test "accepts option entries inside middleware lists" do
+      assert Blog.feature_post(123) == {:ok, {:featured, 123}}
+
+      assert_receive {:middleware, _pid, Blog.Middlewares.AuthorizeEditor, [123], Blog, :feature_post}
+      assert_receive {:middleware_opts, Blog.Middlewares.RecordAuditLogWithOpts, [123], event: :feature_post}
+    end
+
+    test "restores middleware options after yielding" do
+      assert Blog.schedule_post(123) == {:ok, {:scheduled, 123}}
+
+      assert_receive {:middleware_opts_before_yield, event: :outer}
+      assert_receive {:middleware_opts, Blog.Middlewares.RecordAuditLogWithOpts, [123], event: :inner}
+      assert_receive {:middleware_opts_after_yield, event: :outer}
+    end
+
+    test "uses empty options for bare entries after option entries" do
+      assert Blog.promote_post(123) == {:ok, {:promoted, 123}}
+
+      assert_receive {:middleware_opts, Blog.Middlewares.RecordAuditLogWithOpts, [123], event: :promote_post}
+      assert_receive {:middleware_opts, Blog.Middlewares.AssertEmptyOpts, [123], []}
     end
 
     test "accumulates repeated middleware attributes in source order" do
@@ -479,6 +578,30 @@ defmodule Patterns.MiddlewareTest do
       assert result == {:done, [123], :manual_publish}
       assert resolution.function == :manual_publish
       assert_received {:middleware, _pid, Blog.Middlewares.RecordAuditLog, [123], __MODULE__, :manual_publish}
+    end
+
+    test "accepts middleware entries with options" do
+      resolution = %Resolution{
+        module: __MODULE__,
+        function: :manual_archive,
+        arity: 1,
+        args: [123],
+        middleware: []
+      }
+
+      {result, resolution} =
+        Patterns.Middleware.run(
+          {Blog.Middlewares.RecordAuditLogWithOpts, event: :manual_archive},
+          [123],
+          resolution,
+          fn input, resolution ->
+            {:done, input, resolution.function}
+          end
+        )
+
+      assert result == {:done, [123], :manual_archive}
+      assert resolution.function == :manual_archive
+      assert_received {:middleware_opts, Blog.Middlewares.RecordAuditLogWithOpts, [123], event: :manual_archive}
     end
 
     test "returns resolution changes from middleware" do
