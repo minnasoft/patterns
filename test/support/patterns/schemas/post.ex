@@ -6,6 +6,7 @@ if Mix.env() == :test do
 
     schema "patterns_posts" do
       field :title, :string
+      field :views, :integer
       field :published, :boolean, default: false
       field :deleted_at, :utc_datetime
 
