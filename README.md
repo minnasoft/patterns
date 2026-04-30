@@ -13,7 +13,7 @@ It gives you small, composable building blocks for the parts of an app that tend
 - query DSLs
 - middleware
 - scoped context
-- delegation helpers
+- [delegation helpers](https://hexdocs.pm/patterns/Patterns.Utils.html#defdelegate_all/1)
 - tiny conventions you keep rewriting from project to project
 
 Patterns is for the little bits of structure you keep rebuilding.
@@ -44,6 +44,14 @@ Patterns is for codebases that want:
 - APIs that feel nice without getting weird about it
 
 Write the Elixir you want to write. Patterns just helps it stay pretty.
+
+## What's Inside?
+
+### Utilities
+
+A couple of tiny tools for library-ish code:
+
+- `defdelegate_all/1` for when yes, actually, you do want to delegate the whole public surface.
 
 ## Status
 
