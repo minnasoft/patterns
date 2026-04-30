@@ -6,6 +6,7 @@ if Mix.env() == :test do
 
     schema "patterns_comments" do
       field :body, :string
+      field :likes, :integer
       belongs_to :post, Patterns.Test.Post
     end
   end
