@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  hex:
+    name: Publish Hex Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Setup Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+        with:
+          use-flakehub: false
+
+      - name: Publish to Hex
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: nix develop --command bash -c "mix local.hex --force && mix local.rebar --force && mix deps.get && mix test && MIX_ENV=prod mix hex.publish --yes"
