@@ -248,6 +248,18 @@ defmodule Patterns.Queryable.DSLTest do
       assert DSL.binding_schema(query, :comment_post) == Post
     end
 
+    test "returns the schema for direct schema joins" do
+      query =
+        Query.from(post in Post,
+          as: :self,
+          join: comment in Comment,
+          as: :comments,
+          on: comment.post_id == post.id
+        )
+
+      assert DSL.binding_schema(query, :comments) == Comment
+    end
+
     test "uses the current scoped binding" do
       query =
         Query.from(post in Post,
@@ -269,6 +281,45 @@ defmodule Patterns.Queryable.DSLTest do
 
       assert_raise ArgumentError, "root query binding must be an Ecto schema source", fn ->
         DSL.binding_schema(query)
+      end
+    end
+
+    test "raises for unnamed raw root sources" do
+      query = Query.from(post in "patterns_posts")
+
+      assert_raise ArgumentError, "root query binding must be an Ecto schema source", fn ->
+        DSL.binding_schema(query)
+      end
+    end
+
+    test "raises for raw join sources" do
+      query =
+        Query.from(post in Post,
+          as: :self,
+          join: comment in "patterns_comments",
+          as: :comments,
+          on: comment.post_id == post.id
+        )
+
+      assert_raise ArgumentError, "query binding at index 1 is not schema-backed", fn ->
+        DSL.binding_schema(query, :comments)
+      end
+    end
+
+    test "raises for non-schema-backed joins" do
+      query =
+        Post
+        |> Query.from(as: :self)
+        |> Query.join(
+          :inner,
+          [post],
+          comment in subquery(Query.from(comment in Comment, select: %{post_id: comment.post_id})),
+          as: :comments,
+          on: comment.post_id == post.id
+        )
+
+      assert_raise ArgumentError, "query binding at index 1 is not schema-backed", fn ->
+        DSL.binding_schema(query, :comments)
       end
     end
 
