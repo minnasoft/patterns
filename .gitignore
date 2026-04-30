@@ -1,0 +1,14 @@
+/_build/
+/cover/
+/deps/
+/doc/
+/erl_crash.dump
+/patterns-*.tar
+/priv/plts/
+/.elixir_ls/
+/.direnv/
+/.nix-hex/
+/.nix-mix/
+/config/*.db
+/config/*.db-shm
+/config/*.db-wal
