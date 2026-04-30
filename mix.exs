@@ -16,6 +16,7 @@ defmodule Patterns.MixProject do
       package: package(),
       description: description(),
       docs: docs(),
+      test_coverage: [tool: ExCoveralls],
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         plt_add_apps: [:ex_unit, :mix]
@@ -25,6 +26,17 @@ defmodule Patterns.MixProject do
 
   def application do
     [extra_applications: [:logger]]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.github": :test,
+        "coveralls.html": :test
+      ]
+    ]
   end
 
   defp elixirc_paths(:test) do
@@ -42,6 +54,8 @@ defmodule Patterns.MixProject do
       {:ecto_sqlite3, ">= 0.0.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:castore, "~> 1.0", only: :test},
+      {:excoveralls, "~> 0.18", only: :test},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false}
     ]

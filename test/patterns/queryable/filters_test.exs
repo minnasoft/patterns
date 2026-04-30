@@ -63,6 +63,33 @@ defmodule Patterns.Queryable.FiltersTest do
       assert SQL.to_sql(:all, Repo, query) == SQL.to_sql(:all, Repo, equivalent_query)
     end
 
+    test "applies limit and offset modifiers" do
+      Repo.insert!(%Post{title: "alpha"})
+      Repo.insert!(%Post{title: "beta"})
+      Repo.insert!(%Post{title: "gamma"})
+
+      results =
+        Post
+        |> Ecto.Query.from(order_by: [asc: :title])
+        |> Filters.apply_filter({:limit, 1})
+        |> Filters.apply_filter({:offset, 1})
+        |> Repo.all()
+        |> Enum.map(& &1.title)
+
+      assert results == ["beta"]
+    end
+
+    test "applies literal select modifiers" do
+      Repo.insert!(%Post{title: "alpha"})
+
+      results =
+        Post
+        |> Filters.apply_filter({:select, %{source: "constant"}})
+        |> Repo.all()
+
+      assert results == [%{source: "constant"}]
+    end
+
     test "applies equality comparators" do
       Repo.insert!(%Post{title: "alpha", views: nil, published: true})
       Repo.insert!(%Post{title: "beta", views: 2, published: false})
@@ -217,6 +244,12 @@ defmodule Patterns.Queryable.FiltersTest do
                |> Filters.apply_filter({:title, ~r/ta$/})
                |> Repo.all()
                |> Enum.map(& &1.title)
+
+      assert_like_sql(query, {:title, {:like, ~r/^alpha.*/}}, "LIKE", "alpha%")
+
+      assert_like_sql(query, {:title, {:not_like, ~r/^alpha.*/}}, "NOT (", "alpha%")
+
+      assert_like_sql(query, {:title, {:not, ~r/^alpha.*/}}, "NOT (", "alpha%")
     end
 
     test "applies caseless regex shorthand" do
@@ -233,6 +266,8 @@ defmodule Patterns.Queryable.FiltersTest do
                |> Enum.map(& &1.title)
 
       assert_like_sql(query, {:title, {:like, ~r/^ALPHA.*/i}}, "lower(", "alpha%")
+
+      assert_like_sql(query, {:title, ~r/^ALPHA.*/i}, "lower(", "alpha%")
 
       assert ["beta"] =
                query
@@ -263,6 +298,14 @@ defmodule Patterns.Queryable.FiltersTest do
       assert_raise ArgumentError, "unsupported filter comparator :between for field :views", fn ->
         Filters.apply_filter(query, {:views, {:between, 1, 3}})
       end
+    end
+
+    test "ignores unsupported filter shapes" do
+      Repo.insert!(%Post{title: "alpha"})
+
+      query = Ecto.Query.from(post in Post, as: :self)
+
+      assert Repo.all(Filters.apply_filter(query, :unsupported)) == Repo.all(query)
     end
 
     test "raises for regex groups and alternation" do
