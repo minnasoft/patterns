@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/ebb663d7-c47e-46bb-af4f-98281c64f89b" alt="Patterns" width="903" height="346" />
+  <img src="assets/patterns.png" alt="Patterns" width="903" height="346" />
 </p>
 
 # Patterns
