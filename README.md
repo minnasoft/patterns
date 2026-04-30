@@ -86,7 +86,7 @@ end
 
 ## Status
 
-Pre-release. Preparing v0.0.1.
+v0.0.1 is the first release. Tiny, useful, and still allowed to be a little cursed.
 
 ## Development
 
