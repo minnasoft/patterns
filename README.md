@@ -9,7 +9,7 @@ Patterns is an anti-framework for shaping plain Elixir code into tidy little sys
 It gives you small, composable building blocks for the parts of an app that tend to get repetitive:
 
 - [query DSLs](https://hexdocs.pm/patterns/Patterns.Queryable.html)
-- middleware
+- [middleware](https://hexdocs.pm/patterns/Patterns.Middleware.html)
 - [scoped context](https://hexdocs.pm/patterns/Patterns.Utils.html#with_ctx/2)
 - [delegation helpers](https://hexdocs.pm/patterns/Patterns.Utils.html#defdelegate_all/1)
 - tiny conventions you keep rewriting from project to project
@@ -62,6 +62,24 @@ Think of it like a more powerful `Repo.get_by/2` that works on any query, with g
 Post.query(title: "Hello")
 Post.query([published: true, order_by: [desc: :published_at]])
 Post.query(comments: [author_id: user.id])
+```
+
+### Middleware
+
+`Patterns.Middleware` wraps plain functions with explicit `@middleware` annotations.
+
+Use it to extend existing functions and APIs: do a lil' auth check here, a lil' logging there.
+
+```elixir
+@middleware Blog.Middlewares.AuthorizeEditor
+def edit_post(post, attrs) do
+  Blog.Posts.update(post, attrs)
+end
+
+@middleware [Blog.Middlewares.AuthorizeEditor, Blog.Middlewares.RecordAuditLog]
+def create_post(attrs) do
+  Blog.Posts.create(attrs)
+end
 ```
 
 ## Status
