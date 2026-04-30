@@ -10,3 +10,4 @@ Includes:
 - `Patterns.Middleware` for explicit function middleware stacks.
 - `Patterns.Utils` for delegation helpers and scoped process-local context.
 - `Patterns.Guards` for small reusable guards.
+- Coveralls reporting for CI coverage.

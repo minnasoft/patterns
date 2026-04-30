@@ -2,6 +2,11 @@
 
 <img src="https://github.com/user-attachments/assets/ebb663d7-c47e-46bb-af4f-98281c64f89b" alt="Patterns" width="903" height="346" />
 
+[![Hex Version](https://img.shields.io/hexpm/v/patterns.svg)](https://hex.pm/packages/patterns)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/patterns/)
+[![CI Status](https://github.com/minnasoft/patterns/workflows/CI/badge.svg)](https://github.com/minnasoft/patterns/actions)
+[![Coverage Status](https://coveralls.io/repos/github/minnasoft/patterns/badge.svg?branch=main)](https://coveralls.io/github/minnasoft/patterns?branch=main)
+
 > Because sometimes you want a tiny \**sparkle*\* of magic.
 
 Patterns is an anti-framework for shaping plain Elixir code into tidy little systems.
