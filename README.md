@@ -10,7 +10,7 @@ It gives you small, composable building blocks for the parts of an app that tend
 
 - query DSLs
 - middleware
-- scoped context
+- [scoped context](https://hexdocs.pm/patterns/Patterns.Utils.html#with_ctx/2)
 - [delegation helpers](https://hexdocs.pm/patterns/Patterns.Utils.html#defdelegate_all/1)
 - tiny conventions you keep rewriting from project to project
 
@@ -50,6 +50,7 @@ Write the Elixir you want to write. Patterns just helps it stay pretty.
 A couple of tiny tools for library-ish code:
 
 - `defdelegate_all/1` for when yes, actually, you do want to delegate the whole public surface.
+- `with_ctx/2` and `ctx/1` for scoped process-local context when a DSL needs to know where it is.
 
 ## Status
 
