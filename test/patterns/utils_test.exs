@@ -1,7 +1,7 @@
 defmodule Patterns.UtilsTest do
   use ExUnit.Case, async: true
 
-  import Patterns.Utils, only: [with_ctx: 2]
+  import Patterns.Utils, only: [update_ctx: 2, with_ctx: 2]
 
   defmodule Source do
     @moduledoc false
@@ -37,22 +37,24 @@ defmodule Patterns.UtilsTest do
     test "sets and restores scoped context" do
       assert is_nil(Patterns.Utils.ctx(:binding))
 
-      result =
+      {result, ctx} =
         with_ctx binding: :references do
           assert Patterns.Utils.ctx(:binding) == :references
 
-          inner_result =
+          {inner_result, inner_ctx} =
             with_ctx binding: :target do
               Patterns.Utils.ctx(:binding)
             end
 
           assert inner_result == :target
+          assert inner_ctx.binding == :target
           assert Patterns.Utils.ctx(:binding) == :references
 
           inner_result
         end
 
       assert result == :target
+      assert ctx.binding == :references
       assert is_nil(Patterns.Utils.ctx(:binding))
     end
 
@@ -60,28 +62,36 @@ defmodule Patterns.UtilsTest do
       assert is_nil(Patterns.Utils.ctx(:binding))
       assert is_nil(Patterns.Utils.ctx(:schema))
 
-      with_ctx binding: :references, schema: Source do
-        assert Patterns.Utils.ctx(:binding) == :references
-        assert Patterns.Utils.ctx(:schema) == Source
+      {_result, ctx} =
+        with_ctx binding: :references, schema: Source do
+          assert Patterns.Utils.ctx(:binding) == :references
+          assert Patterns.Utils.ctx(:schema) == Source
 
-        with_ctx binding: :target do
-          assert Patterns.Utils.ctx(:binding) == :target
+          {_result, inner_ctx} =
+            with_ctx binding: :target do
+              assert Patterns.Utils.ctx(:binding) == :target
+              assert Patterns.Utils.ctx(:schema) == Source
+            end
+
+          assert inner_ctx.binding == :target
+          assert inner_ctx.schema == Source
+          assert Patterns.Utils.ctx(:binding) == :references
           assert Patterns.Utils.ctx(:schema) == Source
         end
 
-        assert Patterns.Utils.ctx(:binding) == :references
-        assert Patterns.Utils.ctx(:schema) == Source
-      end
-
+      assert ctx.binding == :references
+      assert ctx.schema == Source
       assert is_nil(Patterns.Utils.ctx(:binding))
       assert is_nil(Patterns.Utils.ctx(:schema))
     end
 
     test "accepts map context" do
-      with_ctx %{binding: :references} do
-        assert Patterns.Utils.ctx(:binding) == :references
-      end
+      {_result, ctx} =
+        with_ctx %{binding: :references} do
+          assert Patterns.Utils.ctx(:binding) == :references
+        end
 
+      assert ctx.binding == :references
       assert is_nil(Patterns.Utils.ctx(:binding))
     end
 
@@ -116,11 +126,48 @@ defmodule Patterns.UtilsTest do
     end
   end
 
+  describe "update_ctx/2" do
+    test "updates the scoped context and returns the updated value" do
+      {result, ctx} =
+        with_ctx memo: %{invalidated?: false} do
+          update_ctx(:memo, &%{&1 | invalidated?: true})
+        end
+
+      assert result == %{invalidated?: true}
+      assert ctx.memo.invalidated?
+      assert is_nil(Patterns.Utils.ctx(:memo))
+    end
+
+    test "nested scopes keep inherited context updates" do
+      {_result, ctx} =
+        with_ctx memo: %{invalidated?: false} do
+          {_result, _ctx} =
+            with_ctx binding: :comments do
+              update_ctx(:memo, &%{&1 | invalidated?: true})
+            end
+        end
+
+      assert ctx.memo.invalidated?
+    end
+
+    test "nested scopes do not leak overridden context updates" do
+      {_result, ctx} =
+        with_ctx binding: :posts do
+          {_result, _ctx} =
+            with_ctx binding: :comments do
+              update_ctx(:binding, fn _binding -> :updated_comments end)
+            end
+        end
+
+      assert ctx.binding == :posts
+    end
+  end
+
   describe "ctx/1" do
     test "returns values from scoped context" do
       assert is_nil(Patterns.Utils.ctx(:binding))
 
-      result =
+      {result, _ctx} =
         with_ctx binding: :references do
           Patterns.Utils.ctx(:binding)
         end

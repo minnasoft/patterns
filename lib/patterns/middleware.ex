@@ -9,7 +9,10 @@ defmodule Patterns.Middleware do
       defmodule Blog do
         use Patterns.Middleware
 
-        @middleware [Blog.Middlewares.AuthorizeEditor, Blog.Middlewares.RecordAuditLog]
+        @middleware [
+          Blog.Middlewares.AuthorizeEditor,
+          {Blog.Middlewares.RecordAuditLog, event: :create_post}
+        ]
         def create_post(attrs) do
           {:ok, attrs}
         end
@@ -43,6 +46,10 @@ defmodule Patterns.Middleware do
   the next middleware, or to the wrapped function when there is no middleware
   left. Returning `{result, resolution}` without calling `yield/2` halts the
   stack.
+
+  Middleware entries can be modules or `{module, opts}` tuples, where `opts` is
+  a keyword list. Options for the currently running middleware are available on
+  `resolution.opts`.
 
   ## Return Values
 
@@ -91,11 +98,12 @@ defmodule Patterns.Middleware do
 
   ## Stacking Middleware
 
-  Middleware can be attached to public or private functions. A stack can be
-  declared as a list, or by repeating `@middleware` before the function:
+  Middleware can be attached to public or private functions. Each entry can be a
+  module or `{module, opts}`. Declare stacks as a list or by repeating
+  `@middleware` before the function:
 
       @middleware Blog.Middlewares.AuthorizeEditor
-      @middleware Blog.Middlewares.RecordAuditLog
+      @middleware {Blog.Middlewares.RecordAuditLog, event: :publish_post}
       def publish_post(post_id) do
         {:ok, {:published, post_id}}
       end
@@ -319,6 +327,7 @@ defmodule Patterns.Middleware do
               arity: unquote(arity),
               args: args,
               middleware: unquote(escaped_stack),
+              opts: [],
               private: %{}
             }
 
@@ -376,7 +385,9 @@ defmodule Patterns.Middleware do
   The `super` function must be an arity-2 function. If it returns
   `{result, resolution}`, that tuple is treated as the raw result.
   """
-  @spec run([module()] | module(), term(), Resolution.t(), (term(), Resolution.t() -> term())) ::
+  @type middleware_entry :: module() | {module(), keyword()}
+
+  @spec run([middleware_entry()] | middleware_entry(), term(), Resolution.t(), (term(), Resolution.t() -> term())) ::
           {term(), Resolution.t()}
   def run(stack, input, %Resolution{} = resolution, super) when is_function(super, 2) do
     stack = normalize_stack!(stack)
@@ -504,8 +515,11 @@ defmodule Patterns.Middleware do
       {result, resolution} = yield(args, resolution)
   """
   @spec yield(term(), Resolution.t()) :: {term(), Resolution.t()}
-  def yield(input, %Resolution{middleware: [middleware | rest]} = resolution) do
-    middleware.process(input, %{resolution | middleware: rest})
+  def yield(input, %Resolution{middleware: [{middleware, opts} | rest]} = resolution) do
+    current_opts = resolution.opts
+    {result, resolution} = middleware.process(input, %{resolution | middleware: rest, opts: opts})
+
+    {result, %{resolution | opts: current_opts}}
   end
 
   def yield(input, %Resolution{middleware: []} = resolution) do
@@ -520,9 +534,13 @@ defmodule Patterns.Middleware do
   # NOTE: Public but hidden so integration code using run/4 directly can
   # normalize stacks the same way annotations do.
   @doc false
-  @spec normalize_stack!([module()] | module()) :: [module()]
+  @spec normalize_stack!([middleware_entry()] | middleware_entry()) :: [{module(), keyword()}]
   def normalize_stack!(middleware) when is_atom(middleware) do
-    [middleware]
+    [{middleware, []}]
+  end
+
+  def normalize_stack!({middleware, opts}) when is_atom(middleware) and is_list(opts) do
+    [{middleware, opts}]
   end
 
   def normalize_stack!(middleware) when is_list(middleware) do

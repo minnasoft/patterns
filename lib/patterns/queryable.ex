@@ -139,9 +139,11 @@ defmodule Patterns.Queryable do
                 as: :approved_comments,
                 where: comment.approved == true
 
-            with_ctx binding: :approved_comments do
+            {query, _ctx} = with_ctx binding: :approved_comments do
               Blog.Comment.query(query, comment_filters)
             end
+
+            query
 
           filter, query ->
             apply_filter(query, filter)

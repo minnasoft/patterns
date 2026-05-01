@@ -133,7 +133,7 @@ defmodule Patterns.Queryable.DSLTest do
           as: :comments
         )
 
-      query =
+      {query, _ctx} =
         with_ctx binding: :comments do
           DSL.from(binding(comment) in base_query, where: comment.body == "comment")
         end
@@ -268,7 +268,7 @@ defmodule Patterns.Queryable.DSLTest do
           as: :comments
         )
 
-      schema =
+      {schema, _ctx} =
         with_ctx binding: :comments do
           DSL.binding_schema(query)
         end
