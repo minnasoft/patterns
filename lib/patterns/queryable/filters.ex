@@ -304,13 +304,16 @@ defmodule Patterns.Queryable.Filters do
         from binding(x) in query, join: assoc(x, ^field), as: ^field
       end)
 
-    with_ctx binding: field do
-      if Code.ensure_loaded?(assoc) and function_exported?(assoc, :query, 2) do
-        apply(assoc, :query, [query, filters])
-      else
-        Enum.reduce(filters, query, fn filter, query -> apply_filter(query, filter) end)
+    {query, _ctx} =
+      with_ctx binding: field do
+        if Code.ensure_loaded?(assoc) and function_exported?(assoc, :query, 2) do
+          apply(assoc, :query, [query, filters])
+        else
+          Enum.reduce(filters, query, fn filter, query -> apply_filter(query, filter) end)
+        end
       end
-    end
+
+    query
   end
 
   defp regex_to_like(%Regex{source: source, opts: opts}) do

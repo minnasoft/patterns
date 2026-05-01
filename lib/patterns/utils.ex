@@ -16,18 +16,23 @@ defmodule Patterns.Utils do
   > process and does not cross `Task`, spawned process, Dataloader, or other async
   > boundaries.
 
-  The previous context is restored after the block exits, including when the
-  block raises, throws, or exits.
+  Returns `{result, final_ctx}` where `result` is the block result and
+  `final_ctx` is the scoped context after the block returns. The previous context
+  is restored after the block exits, including when the block raises, throws, or
+  exits.
 
   ## Example
 
       ctx(:binding)
       #=> nil
 
-      with_ctx binding: :references do
+      {_result, ctx} = with_ctx binding: :references do
         ctx(:binding)
         #=> :references
       end
+
+      ctx.binding
+      #=> :references
 
       ctx(:binding)
       #=> nil
@@ -35,18 +40,49 @@ defmodule Patterns.Utils do
   defmacro with_ctx(ctx, do: block) do
     quote do
       previous_ctx = Process.get(unquote(@ctx_key))
-      Process.put(unquote(@ctx_key), Map.merge(previous_ctx || %{}, Map.new(unquote(ctx))))
+      scoped_ctx = Map.new(unquote(ctx))
+      scoped_keys = Map.keys(scoped_ctx)
+      Process.put(unquote(@ctx_key), Map.merge(previous_ctx || %{}, scoped_ctx))
 
       try do
-        unquote(block)
+        {unquote(block), Process.get(unquote(@ctx_key), %{})}
       after
         if previous_ctx do
-          Process.put(unquote(@ctx_key), previous_ctx)
+          inherited_keys = Map.keys(previous_ctx) -- scoped_keys
+
+          inherited_updates =
+            unquote(@ctx_key)
+            |> Process.get(%{})
+            |> Map.take(inherited_keys)
+
+          Process.put(unquote(@ctx_key), Map.merge(previous_ctx, inherited_updates))
         else
           Process.delete(unquote(@ctx_key))
         end
       end
     end
+  end
+
+  @doc """
+  Updates a value in the current scoped context.
+
+  Returns the updated value.
+
+      {_result, ctx} = with_ctx memo: %{invalidated?: false} do
+        update_ctx(:memo, &%{&1 | invalidated?: true})
+      end
+
+      ctx.memo.invalidated?
+      #=> true
+  """
+  @spec update_ctx(term(), (term() -> term())) :: term()
+  def update_ctx(key, fun) when is_function(fun, 1) do
+    ctx = Process.get(@ctx_key, %{})
+    value = ctx |> Map.get(key) |> fun.()
+
+    Process.put(@ctx_key, Map.put(ctx, key, value))
+
+    value
   end
 
   @doc """
