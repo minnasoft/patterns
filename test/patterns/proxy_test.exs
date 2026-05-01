@@ -1,5 +1,6 @@
 defmodule Patterns.ProxyTest do
   use ExUnit.Case, async: true
+  use Patterns.Proxy
 
   describe "ensure/3" do
     test "starts a proxy under a supervisor" do
@@ -96,11 +97,47 @@ defmodule Patterns.ProxyTest do
       supervisor = start_supervisor!()
 
       result =
-        Patterns.Proxy.with_proxy(supervisor, {:blog, :fetch_post, 1}, [], fn proxy ->
-          {:ok, proxy.scope}
-        end)
+        with_proxy supervisor, {:blog, :fetch_post, 1}, [] do
+          proxy ->
+            {:ok, proxy.scope}
+        end
 
       assert result == {:ok, {:blog, :fetch_post, 1}}
+    end
+
+    test "supports shorthand block syntax" do
+      supervisor = start_supervisor!()
+      scope = {:blog, :fetch_post, 1}
+
+      result =
+        with_proxy supervisor, scope do
+          proxy ->
+            Patterns.Proxy.put(proxy, :post, %{id: 1})
+            Patterns.Proxy.get(proxy, :post)
+        end
+
+      assert result == {:ok, %{id: 1}}
+    end
+
+    test "supports guarded block syntax" do
+      supervisor = start_supervisor!()
+      dirty? = dirty_option()
+
+      result =
+        with_proxy supervisor, {:blog, :fetch_post, 1}, [] do
+          proxy when dirty? ->
+            {:dirty, proxy.scope}
+
+          proxy ->
+            {:clean, proxy.scope}
+        end
+
+      assert result == {:dirty, {:blog, :fetch_post, 1}}
+    end
+
+    test "imports only with_proxy syntax" do
+      assert __ENV__.functions |> Keyword.get(Patterns.Proxy, []) |> Keyword.keys() == []
+      assert :with_proxy in (__ENV__.macros |> Keyword.fetch!(Patterns.Proxy.DSL) |> Keyword.keys())
     end
 
     test "starts lazily and reuses existing state" do
@@ -372,6 +409,10 @@ defmodule Patterns.ProxyTest do
     [{pid, _table}] = Registry.lookup(Patterns.Proxy.Supervisor.registry(supervisor), scope)
 
     pid
+  end
+
+  defp dirty_option do
+    true
   end
 
   defp wait_until(fun, attempts \\ 50)
