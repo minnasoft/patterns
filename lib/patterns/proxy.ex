@@ -91,6 +91,22 @@ defmodule Patterns.Proxy do
   @type options :: [dirty: boolean()]
 
   @doc """
+  Imports block syntax for `with_proxy`.
+
+      use Patterns.Proxy
+
+      with_proxy Patterns.Proxy.Supervisor, scope, [] do
+        proxy ->
+          Patterns.Proxy.get(proxy, :post)
+      end
+  """
+  defmacro __using__(_opts) do
+    quote do
+      import Patterns.Proxy.DSL, only: [with_proxy: 3, with_proxy: 4]
+    end
+  end
+
+  @doc """
   Finds or starts the proxy for `scope` under `supervisor`.
 
   The supervisor must already be running. See `Patterns.Proxy.Supervisor` for
